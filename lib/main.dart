@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:chat_gpt_sdk/chat_gpt_sdk.dart';
 import 'package:flutter/material.dart';
@@ -44,6 +45,7 @@ class _MyAppState extends State<MyApp> {
   List<String>? _usefulParagraphs;
   String? _synthese;
   bool _isLoading = false;
+  List<String>? _listImages;
 
   // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initPlatformState() async {
@@ -54,8 +56,6 @@ class _MyAppState extends State<MyApp> {
     // Fetch the content from the URL
     final response = await http.get(
       Uri.parse(shared!.content!),
-      // Uri.parse(
-      //     "https://www.leparisien.fr/info-paris-ile-de-france-oise/transports/greve-la-ratp-prevoit-un-trafic-quasi-normal-mercredi-sauf-pour-le-rer-tres-pertube-13-03-2023-NDGVJI4U3FDNTB4APJ7BIYFQFA.php"),
       headers: {'Content-Type': 'text/html;'},
     );
     if (response.statusCode == 200) {
@@ -66,6 +66,19 @@ class _MyAppState extends State<MyApp> {
         if (titleElement != null) {
           _pageTitle = titleElement.text;
         }
+
+        // Récupérer tous les éléments <img>
+        final imgElements = document.querySelectorAll('img');
+        _listImages = [];
+        // Extraire l'URL de chaque image et les ajouter à la liste
+        for (final img in imgElements) {
+          log("img: ${img.attributes['src']}");
+          final src = img.attributes['src'];
+          if (src != null) {
+            _listImages?.add(src);
+          }
+        }
+
         final contentType = response.headers['content-type'];
         if (contentType != null) {
           final charsetMatch =
@@ -123,49 +136,92 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         brightness: Brightness.dark,
         primaryColor: Colors.lightBlue[800],
-        fontFamily: 'Georgia',
+        fontFamily: 'Montserrat',
         textTheme: const TextTheme(
           displayLarge: TextStyle(
             fontSize: 24.0,
             fontFamily: 'Montserrat',
             color: Colors.white,
           ),
-          displayMedium: TextStyle(
-              fontSize: 18.0, fontFamily: 'Montserrat', color: Colors.white),
+          displayMedium: TextStyle(fontSize: 18.0, color: Colors.white),
         ),
         splashColor: Colors.yellow,
       ),
       home: Scaffold(
         appBar: AppBar(
           title: Text(
-              _pageTitle.toString() == "null" ? "rid" : _pageTitle.toString()),
+              _pageTitle.toString() == "null" ? "Rid" : _pageTitle.toString()),
         ),
-        body: Center(
-          child: ListView(
-            children: <Widget>[
-              const SizedBox(height: 10),
-              _synthese != null
-                  ? Column(
-                      children: [
-                        Text("Page title: $_pageTitle",
-                            style: Theme.of(context).textTheme.displayLarge),
-                        const SizedBox(height: 10),
-                        Text(_synthese!,
-                            style: Theme.of(context).textTheme.displayMedium)
-                      ],
-                    )
-                  : _isLoading
-                      ? const Expanded(
-                          child: Center(
-                            child: CircularProgressIndicator(),
-                          ),
+        body: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                children: <Widget>[
+                  const SizedBox(height: 10),
+                  _isLoading
+                      ? Center(
+                          child: CircularProgressIndicator(),
                         )
-                      : const SizedBox.shrink(),
-              Text(_call.toString()),
+                      : _synthese != null && _synthese != ""
+                          ? Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    _pageTitle.toString(),
+                                    style: const TextStyle(
+                                      fontSize: 26.0,
+                                      fontFamily: 'Montserrat',
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 30),
+                                  Text(
+                                    _synthese!,
+                                    style: const TextStyle(
+                                      fontSize: 20.0,
+                                      fontFamily: 'Montserrat',
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : const Text('No data'),
 
-              // ...
-            ],
-          ),
+                  // ...
+                ],
+              ),
+            ),
+            Center(
+              child: Text(
+                "Images : ",
+                style: const TextStyle(
+                  fontSize: 20.0,
+                  fontFamily: 'Montserrat',
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+            Expanded(
+              child: _listImages == null
+                  ? SizedBox(
+                      width: 150,
+                      child: Image.network(
+                          "https://static.vecteezy.com/system/resources/previews/010/313/693/original/emoji-feel-good-smile-happy-file-png.png"),
+                    )
+                  : ListView.builder(
+                      itemCount: _listImages?.length,
+                      itemBuilder: (BuildContext context, int index) {
+                        return SizedBox(
+                          width: 150,
+                          child: Image.network(_listImages![index]),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
       ),
     );
@@ -189,8 +245,12 @@ class _MyAppState extends State<MyApp> {
             receiveTimeout: const Duration(seconds: 60),
             connectTimeout: const Duration(seconds: 60)),
         isLogger: true);
+
     final handler = await ShareHandlerPlatform.instance;
+    handler.sharedMediaStream.listen(_handleSharedMediaChange);
     shared = await handler.getInitialSharedMedia();
-    await handler.sharedMediaStream.listen(_handleSharedMediaChange);
+    if (shared?.content?.startsWith('http') == true) {
+      initPlatformState();
+    }
   }
 }
