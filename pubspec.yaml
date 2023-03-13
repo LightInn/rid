@@ -32,7 +32,8 @@ dependencies:
   share_handler: ^0.0.16
   http: ^0.13.5
   html: ^0.15.2
-  flutter_chatgpt_api: ^1.1.0
+  chat_gpt_sdk: ^2.0.4
+  flutter_dotenv: ^5.0.2
 
 
   # The following adds the Cupertino Icons font to your application.
