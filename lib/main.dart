@@ -2,13 +2,15 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:chat_gpt_sdk/chat_gpt_sdk.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:rid/settings_page.dart';
 import 'dart:async';
 import 'package:share_handler_platform_interface/share_handler_platform_interface.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html;
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   runApp(const MyApp());
@@ -23,20 +25,30 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late OpenAI openAI;
-
   late bool _call;
 
   @override
   void initState() {
     super.initState();
     _call = false;
-    initOpenAI();
+    initApiKey();
   }
 
   @override
   void dispose() {
     openAI.close();
     super.dispose();
+  }
+
+  Future<void> initApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final apiKey = prefs.getString('apiKey');
+    if (apiKey == null) {
+      navigatorKey.currentState?.pushReplacementNamed('/settings');
+    } else {
+      _isApiKeyValid = true;
+      await initOpenAI(apiKey);
+    }
   }
 
   SharedMedia? shared;
@@ -46,6 +58,7 @@ class _MyAppState extends State<MyApp> {
   String? _synthese;
   bool _isLoading = false;
   List<String>? _listImages;
+  bool _isApiKeyValid = false;
 
   // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initPlatformState() async {
@@ -74,8 +87,14 @@ class _MyAppState extends State<MyApp> {
         for (final img in imgElements) {
           log("img: ${img.attributes['src']}");
           final src = img.attributes['src'];
+
           if (src != null) {
-            _listImages?.add(src);
+            Uri? uri = Uri.tryParse(src);
+            if (uri != null &&
+                uri.isAbsolute &&
+                (uri.scheme == 'http' || uri.scheme == 'https')) {
+              _listImages?.add(src);
+            }
           }
         }
 
@@ -103,16 +122,17 @@ class _MyAppState extends State<MyApp> {
           Map.of({
             "role": "user",
             "content":
-                'Ton rôle est de synthétiser des articles de presse. Je vais te donner le contenu d\'une page web traitant d\'un sujet d\'actualité et tu dois me le résumer en quelques phrases en ne gardant que l\'essentiel, sans te répéter. Contenu :"' +
-                    joined! +
-                    '"'
+                'Ton rôle est de synthétiser des articles de presse. Je vais te donner le contenu d\'une page web traitant d\'un sujet d\'actualité et tu dois me le résumer en quelques phrases en ne gardant que l\'essentiel, sans te répéter. Tu formatera le resultat pour le rendre agreable a lire et aerer en francais. Contenu :"${joined!}"'
           })
         ], maxToken: 1000, model: kChatGptTurbo0301Model);
 
         openAI.onChatCompletion(request: request).then((value) => {
               setState(() {
                 _synthese = value?.choices[0].message.content;
-                _isLoading = value?.choices[0] != null ? false : true;
+                _isLoading = value?.choices[0].message.content != null &&
+                        value?.choices[0].message.content != ""
+                    ? false
+                    : true;
               })
             });
       } else {
@@ -124,8 +144,6 @@ class _MyAppState extends State<MyApp> {
 
     if (!mounted) return;
     setState(() {
-      _isLoading = false;
-
       // _platformVersion = platformVersion;
     });
   }
@@ -133,6 +151,11 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
+      initialRoute: '/',
+      routes: {
+        '/settings': (context) => const SettingsPage(),
+      },
       theme: ThemeData(
         brightness: Brightness.dark,
         primaryColor: Colors.lightBlue[800],
@@ -229,6 +252,7 @@ class _MyAppState extends State<MyApp> {
 
   void _handleSharedMediaChange(SharedMedia? media) async {
     setState(() {
+      _isLoading = true;
       _call = true;
       shared = media;
     });
@@ -237,10 +261,9 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<void> initOpenAI() async {
-    await dotenv.load();
+  Future<void> initOpenAI(String apiKey) async {
     openAI = OpenAI.instance.build(
-        token: dotenv.env['TOKEN'],
+        token: apiKey,
         baseOption: HttpSetup(
             receiveTimeout: const Duration(seconds: 60),
             connectTimeout: const Duration(seconds: 60)),
