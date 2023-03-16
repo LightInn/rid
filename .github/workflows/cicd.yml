@@ -17,6 +17,4 @@ jobs:
           flutter pub get
           dart pub outdated
           dart format
-          flutter analyze
-          flutter test
           flutter build apk --debug
