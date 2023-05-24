@@ -25,12 +25,11 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late OpenAI openAI;
-  late bool _call;
+  late SharedPreferences _prefs;
 
   @override
   void initState() {
     super.initState();
-    _call = false;
     initApiKey();
   }
 
@@ -42,8 +41,8 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> initApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    final apiKey = prefs.getString('apiKey');
+    final _prefs = await SharedPreferences.getInstance();
+    final apiKey = _prefs.getString('apiKey');
     if (apiKey == null) {
       navigatorKey.currentState?.pushReplacementNamed('/settings');
     } else {
@@ -139,6 +138,20 @@ class _MyAppState extends State<MyApp> {
                 }),
             onDone: () => setState(() {
                   _isLoading = false;
+
+                  // convert en JSON
+
+                  final page_dictionary = {
+                    "url": shared!.content!,
+                    "title": _pageTitle.toString(),
+                    "images": _listImages,
+                    "synthese": _synthese.toString()
+                  };
+
+                  final json = jsonEncode(page_dictionary);
+
+                  // todo: save to shared preferences dictionary
+
                   log("done");
                 }));
       } else {
@@ -261,7 +274,6 @@ class _MyAppState extends State<MyApp> {
   void _handleSharedMediaChange(SharedMedia? media) async {
     setState(() {
       _isLoading = true;
-      _call = true;
       shared = media;
     });
     if (shared?.content?.startsWith('http') == true) {
