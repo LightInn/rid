@@ -36,7 +36,8 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
-    openAI.close();
+    // todo : voir si on doit fermer la connexion
+    // openAI.close();
     super.dispose();
   }
 
@@ -64,6 +65,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> initPlatformState() async {
     setState(() {
       _isLoading = true;
+      _synthese = "";
     });
 
     // Fetch the content from the URL
@@ -124,17 +126,21 @@ class _MyAppState extends State<MyApp> {
             "content":
                 'Ton rôle est de synthétiser des articles de presse. Je vais te donner le contenu d\'une page web traitant d\'un sujet d\'actualité et tu dois me le résumer en quelques phrases en ne gardant que l\'essentiel, sans te répéter. Tu formatera le resultat pour le rendre agreable a lire et aerer en francais. Contenu :"${joined!}"'
           })
-        ], maxToken: 1000, model: kChatGptTurbo0301Model);
+        ], maxToken: 1000, model: ChatModel.gptTurbo);
 
-        openAI.onChatCompletion(request: request).then((value) => {
-              setState(() {
-                _synthese = value?.choices[0].message.content;
-                _isLoading = value?.choices[0].message.content != null &&
-                        value?.choices[0].message.content != ""
-                    ? false
-                    : true;
-              })
-            });
+        openAI.onChatCompletionSSE(request: request).listen(
+            (value) => setState(() {
+                  _synthese = _synthese.toString() +
+                      value.choices.first.message!.content;
+                  _isLoading = value.choices.first.message?.content != null &&
+                          _synthese != ""
+                      ? false
+                      : true;
+                }),
+            onDone: () => setState(() {
+                  _isLoading = false;
+                  log("done");
+                }));
       } else {
         setState(() {
           _isLoading = false;
@@ -172,6 +178,8 @@ class _MyAppState extends State<MyApp> {
       ),
       home: Scaffold(
         appBar: AppBar(
+          leading: IconButton.outlined(
+              onPressed: () {}, icon: const Icon(Icons.account_tree_outlined)),
           title: Text(
               _pageTitle.toString() == "null" ? "Rid" : _pageTitle.toString()),
         ),
@@ -182,7 +190,7 @@ class _MyAppState extends State<MyApp> {
                 children: <Widget>[
                   const SizedBox(height: 10),
                   _isLoading
-                      ? Center(
+                      ? const Center(
                           child: CircularProgressIndicator(),
                         )
                       : _synthese != null && _synthese != ""
@@ -216,10 +224,10 @@ class _MyAppState extends State<MyApp> {
                 ],
               ),
             ),
-            Center(
+            const Center(
               child: Text(
                 "Images : ",
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20.0,
                   fontFamily: 'Montserrat',
                   color: Colors.white,
@@ -267,7 +275,7 @@ class _MyAppState extends State<MyApp> {
         baseOption: HttpSetup(
             receiveTimeout: const Duration(seconds: 60),
             connectTimeout: const Duration(seconds: 60)),
-        isLogger: true);
+        enableLog: true);
 
     final handler = await ShareHandlerPlatform.instance;
     handler.sharedMediaStream.listen(_handleSharedMediaChange);
