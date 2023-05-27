@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:chat_gpt_sdk/chat_gpt_sdk.dart';
 import 'package:flutter/material.dart';
+import 'package:rid/liste_page.dart';
 import 'package:rid/settings_page.dart';
 import 'dart:async';
 import 'package:share_handler_platform_interface/share_handler_platform_interface.dart';
@@ -136,7 +137,7 @@ class _MyAppState extends State<MyApp> {
                       ? false
                       : true;
                 }),
-            onDone: () => setState(() async {
+            onDone: () => setState(()  {
                   _isLoading = false;
 
                   // convert en JSON
@@ -177,6 +178,7 @@ class _MyAppState extends State<MyApp> {
       initialRoute: '/',
       routes: {
         '/settings': (context) => const SettingsPage(),
+        '/list': (context) => const ListePage(),
       },
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -195,7 +197,17 @@ class _MyAppState extends State<MyApp> {
       home: Scaffold(
         appBar: AppBar(
           leading: IconButton.outlined(
-              onPressed: () {}, icon: const Icon(Icons.account_tree_outlined)),
+              onPressed: () {
+                navigatorKey.currentState?.pushNamed('/list');
+              },
+              icon: const Icon(Icons.account_tree_outlined)),
+          actions: [
+            IconButton(
+                onPressed: () {
+                  navigatorKey.currentState?.pushNamed('/settings');
+                },
+                icon: const Icon(Icons.settings)),
+          ],
           title: Text(
               _pageTitle.toString() == "null" ? "Rid" : _pageTitle.toString()),
         ),
