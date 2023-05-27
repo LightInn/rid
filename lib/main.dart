@@ -136,7 +136,7 @@ class _MyAppState extends State<MyApp> {
                       ? false
                       : true;
                 }),
-            onDone: () => setState(() {
+            onDone: () => setState(() async {
                   _isLoading = false;
 
                   // convert en JSON
@@ -148,11 +148,14 @@ class _MyAppState extends State<MyApp> {
                     "synthese": _synthese.toString()
                   };
 
-                  final json = jsonEncode(page_dictionary);
+                  final newsDictionary =
+                      jsonDecode(_prefs.getString("newsDictionary") ?? "{}");
 
-                  // todo: save to shared preferences dictionary
+                  newsDictionary[shared!.content!] = page_dictionary;
 
-                  log("done");
+                  _prefs.setString(
+                      "newsDictionary", jsonEncode(newsDictionary));
+                  log("saved");
                 }));
       } else {
         setState(() {
